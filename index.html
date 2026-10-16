@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เกม: นักแก้ปัญหาตัวจิ๋ว</title>
+    <!-- Import Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Import Google Fonts (Prompt for Thai readability) -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Prompt', sans-serif; 
+            background-color: #fef08a; /* yellow-200 */
+            background-image: radial-gradient(#fde047 2px, transparent 2px);
+            background-size: 30px 30px;
+            overflow-x: hidden;
+        }
+        
+        /* Interactive Button Press Effect */
+        .btn-press { 
+            transition: all 0.1s ease-in-out; 
+            box-shadow: 0 6px 0 rgba(0,0,0,0.15); 
+        }
+        .btn-press:active:not(:disabled) { 
+            transform: translateY(6px); 
+            box-shadow: 0 0px 0 rgba(0,0,0,0.15); 
+        }
+        .btn-press:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        /* Animations */
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop-in { animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+        }
+        .animate-shake { animation: shake 0.4s ease-in-out; }
+
+        /* Custom Scrollbar for choices */
+        .choices-container::-webkit-scrollbar { width: 6px; }
+        .choices-container::-webkit-scrollbar-track { background: transparent; }
+        .choices-container::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 text-slate-800">
+
+    <div id="startScreen" class="bg-white rounded-[3rem] shadow-2xl p-8 max-w-lg w-full text-center border-8 border-orange-400 relative overflow-hidden animate-pop-in">
+        <div class="absolute -top-10 -left-10 text-8xl opacity-20">🧩</div>
+        <div class="absolute -bottom-10 -right-10 text-8xl opacity-20">💡</div>
+        
+        <div class="text-7xl mb-4 animate-float drop-shadow-md">🕵️‍♂️</div>
+        <h1 class="text-4xl md:text-5xl font-bold text-orange-500 drop-shadow-sm mb-4 leading-tight">นักแก้ปัญหา<br><span class="text-blue-500">ตัวจิ๋ว!</span></h1>
+        <p class="text-lg text-gray-600 mb-8 font-semibold">มาช่วยเพื่อนๆ แก้ปัญหาในชีวิตประจำวันอย่างเป็นขั้นตอนกันเถอะ!</p>
+        
+        <button onclick="showInstructions()" class="btn-press bg-green-400 hover:bg-green-500 text-white text-3xl font-bold py-4 px-10 rounded-full w-full border-4 border-green-500 shadow-lg relative z-10">
+            ▶️ เริ่มเล่นเลย!
+        </button>
+    </div>
+
+    <div id="instructionScreen" class="hidden bg-white rounded-[3rem] shadow-2xl p-8 max-w-lg w-full text-center border-8 border-blue-400 relative overflow-hidden">
+        <h2 class="text-3xl font-bold text-blue-600 mb-6">📖 วิธีการเล่น</h2>
+        <div class="text-left bg-blue-50 p-6 rounded-3xl border-2 border-blue-200 mb-8 space-y-4 font-medium text-lg">
+            <p>1. อ่านสถานการณ์ปัญหาของตัวละคร</p>
+            <p>2. คิดวิเคราะห์ว่าควรทำอะไรก่อน-หลัง</p>
+            <p>3. เลือกคำตอบที่ถูกต้องที่สุด</p>
+            <p class="text-pink-600 font-bold">✨ ตอบถูกในครั้งแรก จะได้คะแนนเยอะกว่านะ!</p>
+        </div>
+        <button onclick="startGame()" class="btn-press bg-blue-500 hover:bg-blue-600 text-white text-2xl font-bold py-4 px-10 rounded-full w-full border-4 border-blue-600 shadow-lg">
+            เข้าใจแล้ว ลุยเลย! 🚀
+        </button>
+    </div>
+
+    <div id="gameScreen" class="hidden bg-white rounded-[3rem] shadow-2xl p-6 md:p-8 max-w-2xl w-full border-8 border-purple-400 relative flex flex-col h-[90vh] max-h-[800px]">
+        
+        <!-- Header: Progress & Score -->
+        <div class="flex justify-between items-center mb-4 shrink-0">
+            <div class="bg-purple-100 text-purple-700 font-bold px-4 py-2 rounded-full border-2 border-purple-300 text-lg">
+                ด่าน <span id="levelDisplay">1</span> / 5
+            </div>
+            <div class="bg-yellow-100 text-yellow-700 font-bold px-4 py-2 rounded-full border-2 border-yellow-300 text-lg flex items-center gap-2">
+                ⭐ <span id="scoreDisplay">0</span>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="w-full bg-gray-200 rounded-full h-4 mb-6 shrink-0 border-2 border-gray-300 overflow-hidden">
+            <div id="progressBar" class="bg-green-400 h-full rounded-full transition-all duration-500 w-1/5"></div>
+        </div>
+        
+        <!-- Question Area -->
+        <div class="bg-slate-50 border-4 border-slate-200 rounded-3xl p-6 mb-6 flex-1 flex flex-col items-center justify-center relative shadow-inner overflow-y-auto">
+            <div id="characterEmoji" class="text-6xl mb-4 animate-float drop-shadow-md">👦</div>
+            <h2 id="questionText" class="text-xl md:text-2xl font-bold text-slate-700 leading-relaxed text-center">
+                กำลังโหลดคำถาม...
+            </h2>
+        </div>
+
+        <!-- Choices Area -->
+        <div id="choicesContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0 choices-container overflow-y-auto pb-2">
+            <!-- Buttons injected by JS -->
+        </div>
+    </div>
+
+    <div id="feedbackModal" class="hidden fixed inset-0 bg-slate-900 bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-[3rem] p-8 max-w-md w-full text-center shadow-2xl animate-pop-in border-8 relative overflow-hidden" id="modalBox">
+            <div id="modalIcon" class="text-7xl mb-4 mt-2 drop-shadow-md animate-bounce">🎉</div>
+            <h3 id="modalTitle" class="text-3xl font-bold mb-4">เก่งมาก!</h3>
+            <div class="bg-gray-50 rounded-2xl p-4 mb-6 border-2 border-gray-100">
+                <p id="modalMessage" class="text-lg text-gray-700 leading-relaxed font-semibold"></p>
+            </div>
+            <button id="modalBtn" onclick="closeModal()" class="btn-press text-white text-2xl font-bold py-3 px-8 rounded-full w-full border-b-4">
+                ไปต่อ ➡️
+            </button>
+        </div>
+    </div>
+
+    <div id="resultScreen" class="hidden bg-white rounded-[3rem] shadow-2xl p-8 max-w-lg w-full text-center border-8 border-pink-400 relative overflow-hidden">
+        <div class="absolute -top-10 -left-10 text-8xl opacity-20 text-pink-400">🎈</div>
+        <div class="absolute -bottom-10 -right-10 text-8xl opacity-20 text-pink-400">🎊</div>
+        
+        <h1 class="text-4xl font-bold text-pink-500 mb-2 relative z-10 drop-shadow-sm">จบภารกิจ!</h1>
+        <p class="text-gray-600 mb-6 font-semibold text-lg">มาดูผลงานของนักแก้ปัญหาตัวจิ๋วกัน</p>
+        
+        <div id="starsDisplay" class="text-6xl mb-6 drop-shadow-lg animate-float flex justify-center gap-2">
+            <!-- Stars injected here -->
+        </div>
+        
+        <div class="bg-pink-50 border-4 border-pink-200 rounded-3xl p-6 mb-8 inline-block w-full shadow-inner">
+            <p class="text-xl text-pink-600 font-bold mb-2">คะแนนรวมของคุณ</p>
+            <p class="text-6xl text-slate-800 font-bold"><span id="finalScore" class="text-pink-500">0</span></p>
+            <p class="text-md text-gray-500 mt-2 font-medium" id="feedbackQuote">ยอดเยี่ยมมาก!</p>
+        </div>
+        
+        <button onclick="resetGame()" class="btn-press bg-pink-500 hover:bg-pink-600 text-white text-2xl font-bold py-4 px-8 rounded-full w-full border-4 border-pink-600 relative z-10 shadow-lg">
+            🔄 เล่นอีกครั้ง
+        </button>
+    </div>
+
+    <script>
+        // --- Simple Audio System ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playTone(frequency, type, duration) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+            
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + duration);
+        }
+
+        const sounds = {
+            click: () => playTone(600, 'sine', 0.1),
+            correct: () => {
+                playTone(400, 'sine', 0.1);
+                setTimeout(() => playTone(600, 'sine', 0.15), 100);
+                setTimeout(() => playTone(800, 'sine', 0.2), 250);
+            },
+            wrong: () => {
+                playTone(300, 'sawtooth', 0.2);
+                setTimeout(() => playTone(250, 'sawtooth', 0.3), 200);
+            },
+            win: () => {
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                    setTimeout(() => playTone(freq, 'square', 0.2), i * 150);
+                });
+            }
+        };
+
+        // --- Game Data ---
+        const questions = [
+            {
+                emoji: "🎒",
+                scenario: "น้องต้นต้องเตรียมกระเป๋าไปโรงเรียน ขั้นตอนใดควรทำเป็นอันดับแรก?",
+                options: [
+                    "ใส่สมุดและหนังสือลงกระเป๋า",
+                    "ตรวจดูตารางเรียนของวันพรุ่งนี้",
+                    "รูดซิปปิดกระเป๋าให้สนิท",
+                    "สะพายกระเป๋าเตรียมตัวออกจากบ้าน"
+                ],
+                correctIndex: 1,
+                explanation: "ถูกต้อง! เราต้อง 'ตรวจตารางเรียน' ก่อน เพื่อจะได้รู้ว่าต้องหยิบหนังสือวิชาอะไรใส่กระเป๋าบ้าง",
+                hint: "ถ้าเราใส่หนังสือไปเลย เราอาจจะลืมหนังสือวิชาที่ต้องเรียนพรุ่งนี้นะ"
+            },
+            {
+                emoji: "🥪",
+                scenario: "น้องฟ้าจะทำแซนด์วิชทูน่า ลำดับคือ\n1. หยิบขนมปังแผ่นแรก\n2. [...........?...........]\n3. นำขนมปังอีกแผ่นมาประกบ\nขั้นตอนที่ 2 คืออะไร?",
+                options: [
+                    "กินแซนด์วิชทันที",
+                    "เอาแซนด์วิชไปแช่ตู้เย็น",
+                    "ทาแยมและทูน่าลงบนขนมปัง",
+                    "ทิ้งขนมปังลงถังขยะ"
+                ],
+                correctIndex: 2,
+                explanation: "ถูกต้อง! ก่อนจะประกบขนมปัง เราต้อง 'ใส่ไส้' หรือทาแยมก่อนนะ",
+                hint: "แซนด์วิชต้องมีไส้อยู่ตรงกลางนะ คิดดีๆ ก่อนทำขั้นตอนต่อไป"
+            },
+            {
+                emoji: "📚",
+                scenario: "น้องดินต้องการยืมหนังสือที่ห้องสมุด ขั้นตอนการแก้ปัญหาข้อใดเรียงลำดับได้ถูกต้องที่สุด?",
+                options: [
+                    "หาหนังสือ -> ให้บรรณารักษ์ยืม -> นำกลับบ้าน",
+                    "นำกลับบ้าน -> หาหนังสือ -> ให้บรรณารักษ์ยืม",
+                    "ให้บรรณารักษ์ยืม -> นำกลับบ้าน -> หาหนังสือ",
+                    "หาหนังสือ -> นำกลับบ้านเลยไม่ต้องบอกใคร"
+                ],
+                correctIndex: 0,
+                explanation: "เก่งมาก! เราต้อง 'หาหนังสือ' ก่อน แล้ว 'ยื่นให้บรรณารักษ์' บันทึกข้อมูล ถึงจะ 'นำกลับบ้าน' ได้อย่างถูกต้อง",
+                hint: "เวลาเราไปซื้อของ เราต้องเลือกของก่อนจ่ายเงิน ห้องสมุดก็คล้ายๆ กันนะ"
+            },
+            {
+                emoji: "🧹",
+                scenario: "โต๊ะเรียนของน้องน้ำรกมาก มีทั้งขยะและหนังสือปะปนกัน วิธีแก้ปัญหาที่เหมาะสมที่สุดคือข้อใด?",
+                options: [
+                    "กวาดทุกอย่างบนโต๊ะทิ้งลงถังขยะให้หมด",
+                    "ปล่อยทิ้งไว้แบบนั้น เดี๋ยวก็หายรกเอง",
+                    "เอาหนังสือไปทิ้งถังขยะ แล้วเก็บขยะไว้",
+                    "แยกขยะไปทิ้ง และจัดหนังสือซ้อนกันให้เรียบร้อย"
+                ],
+                correctIndex: 3,
+                explanation: "ใช่แล้ว! การแก้ปัญหาที่ดีต้องรู้จัก 'แยกแยะ' เอาขยะไปทิ้ง และจัดของที่มีประโยชน์ให้เป็นระเบียบ",
+                hint: "หนังสือยังมีประโยชน์อยู่นะ เราไม่ควรทิ้งรวมกับขยะ"
+            },
+            {
+                emoji: "🌱",
+                scenario: "ขั้นตอนการปลูกต้นไม้ในกระถาง ข้อใดเรียงลำดับได้ถูกต้อง?",
+                options: [
+                    "รดน้ำ -> ใส่ดิน -> วางเมล็ด",
+                    "วางเมล็ด -> รดน้ำ -> ใส่ดิน",
+                    "ใส่ดิน -> วางเมล็ด -> รดน้ำ",
+                    "ใส่ดิน -> รดน้ำ (ไม่ต้องใส่เมล็ด)"
+                ],
+                correctIndex: 2,
+                explanation: "ยอดเยี่ยม! เราต้องเตรียม 'ดิน' ก่อน แล้วค่อย 'ใส่เมล็ด' จากนั้นจึง 'รดน้ำ' เพื่อให้เมล็ดเติบโตนะ",
+                hint: "เมล็ดต้องการดินเป็นที่อยู่ และต้องการน้ำในการเติบโตนะ"
+            }
+        ];
+
+        // --- Game State ---
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let attemptsOnCurrent = 0;
+        let currentIsAnswered = false;
+
+        // --- Core Functions ---
+        function hideAll() {
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('instructionScreen').classList.add('hidden');
+            document.getElementById('gameScreen').classList.add('hidden');
+            document.getElementById('resultScreen').classList.add('hidden');
+            document.getElementById('feedbackModal').classList.add('hidden');
+        }
+
+        function showInstructions() {
+            sounds.click();
+            hideAll();
+            document.getElementById('instructionScreen').classList.remove('hidden');
+        }
+
+        function startGame() {
+            sounds.click();
+            currentQuestionIndex = 0;
+            score = 0;
+            hideAll();
+            document.getElementById('gameScreen').classList.remove('hidden');
+            loadQuestion();
+        }
+
+        function resetGame() {
+            startGame();
+        }
+
+        function loadQuestion() {
+            attemptsOnCurrent = 0;
+            currentIsAnswered = false;
+            const q = questions[currentQuestionIndex];
+            
+            // Update UI
+            document.getElementById('levelDisplay').innerText = currentQuestionIndex + 1;
+            document.getElementById('scoreDisplay').innerText = score;
+            document.getElementById('characterEmoji').innerText = q.emoji;
+            document.getElementById('questionText').innerText = q.scenario;
+            
+            // Progress Bar
+            const progressPct = ((currentQuestionIndex) / questions.length) * 100;
+            document.getElementById('progressBar').style.width = `${progressPct}%`;
+            
+            // Add animation to question
+            const qText = document.getElementById('questionText');
+            qText.style.animation = 'none';
+            qText.offsetHeight; // trigger reflow
+            qText.style.animation = 'popIn 0.3s ease-out';
+
+            // Render Choices
+            const container = document.getElementById('choicesContainer');
+            container.innerHTML = '';
+            
+            // Define colors for buttons
+            const colors = [
+                'bg-blue-400 hover:bg-blue-500 border-blue-500', 
+                'bg-rose-400 hover:bg-rose-500 border-rose-500', 
+                'bg-teal-400 hover:bg-teal-500 border-teal-500', 
+                'bg-orange-400 hover:bg-orange-500 border-orange-500'
+            ];
+
+            q.options.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = `btn-press text-white font-bold py-4 px-4 rounded-2xl border-b-4 shadow-sm text-lg md:text-xl flex items-center justify-center text-center h-full min-h-[80px] ${colors[index]}`;
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(index, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedIndex, btnElement) {
+            if (currentIsAnswered) return; // Prevent double clicking
+            
+            const q = questions[currentQuestionIndex];
+            const isCorrect = (selectedIndex === q.correctIndex);
+            
+            if (isCorrect) {
+                sounds.correct();
+                currentIsAnswered = true;
+                
+                // Calculate points: 10 for 1st try, 5 for 2nd try, 2 for later
+                let pointsGained = 10;
+                if (attemptsOnCurrent === 1) pointsGained = 5;
+                if (attemptsOnCurrent > 1) pointsGained = 2;
+                
+                score += pointsGained;
+                document.getElementById('scoreDisplay').innerText = score;
+                
+                showModal(true, "ถูกต้อง! 🎉", q.explanation);
+            } else {
+                sounds.wrong();
+                attemptsOnCurrent++;
+                
+                // Shake effect on the button
+                btnElement.classList.add('animate-shake');
+                setTimeout(() => btnElement.classList.remove('animate-shake'), 400);
+                
+                // Dim the wrong answer
+                btnElement.classList.remove('hover:bg-blue-500', 'hover:bg-rose-500', 'hover:bg-teal-500', 'hover:bg-orange-500');
+                btnElement.classList.add('opacity-50');
+                btnElement.disabled = true;
+
+                showModal(false, "อ๊ะ! ยังไม่ใช่นะ 🤔", q.hint);
+            }
+        }
+
+        function showModal(isCorrect, title, message) {
+            const modal = document.getElementById('feedbackModal');
+            const box = document.getElementById('modalBox');
+            const icon = document.getElementById('modalIcon');
+            const titleEl = document.getElementById('modalTitle');
+            const msgEl = document.getElementById('modalMessage');
+            const btn = document.getElementById('modalBtn');
+
+            icon.innerText = isCorrect ? '🌟' : '💡';
+            titleEl.innerText = title;
+            msgEl.innerText = message;
+            
+            // Styling based on correctness
+            if (isCorrect) {
+                box.className = "bg-white rounded-[3rem] p-8 max-w-md w-full text-center shadow-2xl animate-pop-in border-8 border-green-400 relative overflow-hidden";
+                titleEl.className = "text-3xl font-bold mb-4 text-green-500";
+                btn.className = "btn-press bg-green-500 hover:bg-green-600 text-white text-2xl font-bold py-3 px-8 rounded-full w-full border-b-4 border-green-700";
+                btn.innerText = "ด่านต่อไป ➡️";
+                
+                // Set action for closing
+                btn.onclick = () => {
+                    sounds.click();
+                    modal.classList.add('hidden');
+                    nextQuestion();
+                };
+            } else {
+                box.className = "bg-white rounded-[3rem] p-8 max-w-md w-full text-center shadow-2xl animate-pop-in border-8 border-orange-400 relative overflow-hidden";
+                titleEl.className = "text-3xl font-bold mb-4 text-orange-500";
+                btn.className = "btn-press bg-orange-400 hover:bg-orange-500 text-white text-2xl font-bold py-3 px-8 rounded-full w-full border-b-4 border-orange-600";
+                btn.innerText = "ลองคิดใหม่ 🔄";
+                
+                btn.onclick = () => {
+                    sounds.click();
+                    modal.classList.add('hidden');
+                };
+            }
+            
+            modal.classList.remove('hidden');
+        }
+
+        function nextQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                loadQuestion();
+            } else {
+                showResult();
+            }
+        }
+
+        function showResult() {
+            sounds.win();
+            hideAll();
+            document.getElementById('resultScreen').classList.remove('hidden');
+            
+            // Set final progress bar to 100% just in case
+            document.getElementById('progressBar').style.width = '100%';
+            
+            document.getElementById('finalScore').innerText = score;
+            
+            const maxScore = questions.length * 10;
+            const starsContainer = document.getElementById('starsDisplay');
+            const feedbackQuote = document.getElementById('feedbackQuote');
+            starsContainer.innerHTML = '';
+            
+            let starCount = 1;
+            if (score >= maxScore * 0.9) {
+                starCount = 3;
+                feedbackQuote.innerText = "สุดยอด! นักแก้ปัญหาอัจฉริยะ!";
+            } else if (score >= maxScore * 0.6) {
+                starCount = 2;
+                feedbackQuote.innerText = "เก่งมาก! พัฒนาได้อีกนิดนะ";
+            } else {
+                feedbackQuote.innerText = "พยายามได้ดี! ลองใหม่อีกครั้งนะ";
+            }
+
+            for(let i=0; i<3; i++) {
+                const star = document.createElement('span');
+                star.innerText = i < starCount ? '⭐' : '⬛';
+                if (i >= starCount) star.classList.add('opacity-30', 'grayscale');
+                starsContainer.appendChild(star);
+            }
+        }
+
+    </script>
+</body>
+</html>
